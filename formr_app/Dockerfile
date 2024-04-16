@@ -23,7 +23,13 @@ COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 # Remove this when apache config is added to repository
 # COPY apache.conf /apache.conf
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
+# Remove this when apache config is added to repository
+# COPY apache.conf /apache.conf
 
+#RUN  chmod +x /docker-entrypoint.sh
+RUN ls -la
+RUN ["chmod", "+x", "/docker-entrypoint.sh"]
 ENTRYPOINT [ "/docker-entrypoint.sh" ]
 

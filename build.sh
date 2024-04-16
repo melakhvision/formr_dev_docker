@@ -1,5 +1,5 @@
 #!/bin/bash
-err(){
+err() {
     echo "E: $*" >>/dev/stderr
 }
 
@@ -37,16 +37,14 @@ fi
 
 # Replace domain name in sample apache config with actual domain name and restart container
 echo "Waiting for project formr to be ready / downloaded "
-while [[ ! -f "./formr_app/formr/config/settings.php"  ]]
-do
-sleep 2
+while [[ ! -f "./formr_app/formr/config/settings.php" ]]; do
+    sleep 2
 done
 
 #copy schema.sql from repository
 rm -Rf mysql/dbinitial/*
-while [[ ! -f "./formr_app/formr/sql/schema.sql"  ]]
-do
-sleep 2
+while [[ ! -f "./formr_app/formr/sql/schema.sql" ]]; do
+    sleep 2
 done
 cp -f formr_app/formr/sql/schema.sql mysql/dbinitial/
 
@@ -67,26 +65,22 @@ find_replace_in_file $formr_config "'public_url'\s=>" "\t'public_url' => 'https:
 
 find_replace_in_file $formr_config "'protocol'\s=>" "'protocol' => 'https://',"
 find_replace_in_file $formr_config "use_study_subdomains" "\$settings['use_study_subdomains'] = false;"
-find_replace_in_file $formr_config "doc_root" "		'doc_root' => 'localhost/',"
-find_replace_in_file $formr_config "study_domain" "		'study_domain' => 'localhost/',"
+find_replace_in_file $formr_config "doc_root" "         'doc_root' => '${FORMR_DOMAIN}/',"
+find_replace_in_file $formr_config "study_domain" "             'study_domain' => '${FORMR_DOMAIN}/',"
 
+if [ -f "mysql/dbinitial/schema.sql" ]; then
 
-
-if [ -f "mysql/dbinitial/schema.sql" ]
-then
-    
     find_replace_in_file "mysql/dbinitial/schema.sql" "NOT\sEXISTS\sformr" "CREATE DATABASE IF NOT EXISTS ${MARIADB_DATABASE} CHARSET=utf8mb4 COLLATE utf8mb4_unicode_ci;"
     find_replace_in_file "mysql/dbinitial/schema.sql" "USE\sformr" "USE ${MARIADB_DATABASE};"
     sudo docker compose up -d formr_db
-    while [[ $(sudo docker inspect -f '{{.State.Running}}' formr_db) != "true" ]]
-    do
-    echo "Waiting for formr_db to start running "
-    sleep 2
+    while [[ $(sudo docker inspect -f '{{.State.Running}}' formr_db) != "true" ]]; do
+        echo "Waiting for formr_db to start running "
+        sleep 2
     done
-    sudo docker exec -i formr_db sh -c "exec mariadb -uroot -p${MARIADB_ROOT_PASSWORD}" < mysql/dbinitial/schema.sql
+    sudo docker exec -i formr_db sh -c "exec mariadb -uroot -p${MARIADB_ROOT_PASSWORD}" <mysql/dbinitial/schema.sql
 fi
 
-sudo docker compose up -d formr_db  
+sudo docker compose up -d formr_db
 sudo docker compose restart formr_app
 
 # Create opencpu config files
@@ -94,10 +88,10 @@ sudo docker compose restart formr_app
 # sudo touch etc/opencpu/Rprofile
 # sudo touch etc/opencpu/Renviron
 
-sudo docker compose up -d
-
 # create superadmin
 docker exec -it formr_app php bin/add_user.php -e ${FORMR_EMAIL} -p $FORMR_PASSWORD -l "100"
+
+sudo docker-compose up -d
 
 echo "============================================================"
 echo "|                                                          |"

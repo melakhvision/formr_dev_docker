@@ -5,7 +5,6 @@ x-logging: &default-logging
     max-file: "5"
   driver: json-file
 services:
-
   # formr.org application (Configure in etc/formr/apache.conf and formr_app/formr/config/settings.php)
 
   formr_app:
@@ -18,8 +17,6 @@ services:
       - TZ=${TIMEZONE}
       - FORMR_TAG=${FORMR_TAG} #required
       - FORMR_APACHE_CONFIG=${FORMR_APACHE_CONFIG}
-      - ASSET_URL=http://localhost:8082
-      - APP_ENV=production
     #    links:
     #      - formr_db
     volumes:
@@ -29,8 +26,6 @@ services:
     depends_on:
       - formr_db
       - opencpu
-    ports:
-      - "8082:80"
     networks:
       - all
     logging: *default-logging
@@ -42,7 +37,7 @@ services:
     container_name: formr_db
     hostname: formr_db
     env_file:
-      - '.env'
+      - ".env"
     expose:
       - "3306"
     volumes:
@@ -51,45 +46,46 @@ services:
 
     # (this is just an example, not intended to be a production configuration)
     command: >
-      bash -c " /usr/local/bin/docker-entrypoint.sh  --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
+      bash -c "
+      /usr/local/bin/docker-entrypoint.sh  --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci"
     restart: always
     networks:
       - all
     logging: *default-logging
 
-  # formrmailqueue:
-  #   build:
-  #     context: php_daemon
-  #     dockerfile: Dockerfile
-  #   container_name: formrmailqueue
-  #   environment:
-  #     - TZ=${TIMEZONE}
-  #   volumes:
-  #     - ./formr_app/formr:/formr
-  #   working_dir: /formr
-  #   command: php bin/queue.php -t Email
-  #   restart: always
-  #   depends_on:
-  #     - formr_app
-  #   networks:
-  #     - all
+  formrmailqueue:
+    build:
+      context: php_daemon
+      dockerfile: Dockerfile
+    container_name: formrmailqueue
+    environment:
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./formr_app/formr:/formr
+    working_dir: /formr
+    command: php bin/queue.php -t Email
+    restart: always
+    depends_on:
+      - formr_app
+    networks:
+      - all
 
-  # formrsessionqueue:
-  #   build:
-  #     context: php_daemon
-  #     dockerfile: Dockerfile
-  #   container_name: formrsessionqueue
-  #   environment:
-  #     - TZ=${TIMEZONE}
-  #   volumes:
-  #     - ./formr_app/formr:/formr
-  #   working_dir: /formr
-  #   command: php bin/queue.php -t UnitSession
-  #   restart: always
-  #   depends_on:
-  #     - formr_app
-  #   networks:
-  #     - all
+  formrsessionqueue:
+    build:
+      context: php_daemon
+      dockerfile: Dockerfile
+    container_name: formrsessionqueue
+    environment:
+      - TZ=${TIMEZONE}
+    volumes:
+      - ./formr_app/formr:/formr
+    working_dir: /formr
+    command: php bin/queue.php -t UnitSession
+    restart: always
+    depends_on:
+      - formr_app
+    networks:
+      - all
 
   opencpu:
     build:
@@ -105,12 +101,78 @@ services:
       - TZ=${TIMEZONE}
     ports:
       - "8080:80"
+      - "8004:8004"
     networks:
       - all
     restart: always
     logging: *default-logging
 
+  phpmyadmin:
+    image: phpmyadmin
+    restart: always
+    expose:
+      - "40001"
+    ports:
+      - "40001:80"
+    environment:
+      - PMA_HOST=formr_db
+      - PMA_PORT=3306
+    networks:
+      - all
+
+  nginx:
+    image: nginx:1.23.3-alpine
+    container_name: nginx
+    restart: always
+    ports:
+      - "8082:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - formr_app
+      - opencpu
+    networks:
+      - all
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nginx.rule=Host(`${MAIN_DOMAIN}`)"
+      - "traefik.http.routers.nginx.entrypoints=websecure"
+      - "traefik.http.routers.nginx.tls.certresolver=myresolver"
+      - "traefik.http.services.nginx.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.test-redirectscheme.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.test-redirectscheme.redirectscheme.permanent=true"
+
+  traefik:
+    image: "traefik:v2.9"
+    container_name: traefik
+    restart: always
+    command:
+      #- "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      #- "--entrypoints.websecure.http.middlewares=security-headers"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=admin@lisapremium.shop"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "443:443"
+      - "80:80"
+    depends_on:
+      - formr_app
+      - opencpu
+      - nginx
+    volumes:
+      - letsencrypt:/letsencrypt
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - all
+
 networks:
   all:
     driver: bridge
     name: all
+
+volumes:
+  letsencrypt:
