@@ -93,6 +93,9 @@ docker exec -it formr_app php bin/add_user.php -e ${FORMR_EMAIL} -p $FORMR_PASSW
 
 sudo docker-compose up -d
 
+sleep 15
+docker compose up -d nginx traefik
+
 echo "============================================================"
 echo "|                                                          |"
 echo "| TODO:                                                    |"
