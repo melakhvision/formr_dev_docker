@@ -1,0 +1,13 @@
+.env
+!.gitkeep
+formr_app/formr
+mysql/data/*
+mysql/dbinitial/*
+mysql/encryption/*
+proxy/certs/*
+proxy/conf.d/*
+proxy/htpasswd/*
+proxy/vhost/*
+data/logs/access.log
+data/logs/traefik.log
+proxy/acme/acme.json
