@@ -91,7 +91,7 @@ sudo docker compose restart formr_app
 # create superadmin
 docker exec -it formr_app php bin/add_user.php -e ${FORMR_EMAIL} -p $FORMR_PASSWORD -l "100"
 
-sudo docker-compose up -d
+sudo docker compose up -d
 
 sleep 15
 docker compose up -d nginx traefik
